@@ -105,6 +105,7 @@ a server process.
 Two tables are created by `src/main/resources/schema.sql` for nouns and verbs.
 
 The table "*Noun*" is defined as
+
 ```
 CREATE TABLE IF NOT EXISTS noun (
 	id                     INTEGER PRIMARY KEY,
@@ -113,10 +114,12 @@ CREATE TABLE IF NOT EXISTS noun (
 	spanish                VARCHAR(20)
 );
 ``` 
+
 An *id* column for the primary key, and a String column for each of the English, French and
 Spanish versions of the noun.
 
 Similarly, the table "*Verb*" is
+
 ```
 CREATE TABLE IF NOT EXISTS verb (
 	id                     INTEGER PRIMARY KEY,
@@ -155,9 +158,13 @@ Finally, note also that HSqlDB creates some files in the current directory, `myd
 If you'd prefer, you can use an equivalent database to HSqlDB.
 
 To do this you'll need to do the following:
+
 * Create the tables with the same names, structure and content
+
 * Amend `pom.xml` to load the correct drivers and dependencies
+
 * Update all `application.properties` with the new JDBC connection String.
+
 * Update `BeforeTranslatorConfiguration.java` and `HazelcastServerConfiguration.java` to set the driver class.
 
 Not a difficult undertaking, but certainly error prone. Best to try with the provided database first.
@@ -169,14 +176,18 @@ The application exists as a standalone Jar file, built from Maven modules.
 This module defines the data model.
 
 There are three classes:
+
 * `Noun` holding the English, French and Spanish representation of a noun.
+
 * `Tense` an enumeration for whether a verb is past, present or future.
+
 * `Verb` holding the English, French, and Spanish representation of a verb, and it's tense.
 
 `Noun` and `Verb` both use standard annotations `@Entity` and `@Id` to allow
 Spring Data JPA to associate them with database tables.
 
 `Verb` looks like
+
 ```
 @Entity
 public class Verb implements Serializable {
@@ -190,6 +201,7 @@ public class Verb implements Serializable {
 	private String	spanish;
 	private Tense	tense;
 ```
+
 and `Noun` is the same except it has no `tense` field.
 
 ### `before-jpa-repository`
@@ -199,6 +211,7 @@ For both `NounJPARepository` and `VerbJPARepository` a method `findByEngish(Stri
 defined.
 
 Eg.
+
 ```
 public interface VerbJPARepository extends CrudRepository<Verb, Integer> {
 	public Verb findByEnglish(String s);
@@ -240,6 +253,7 @@ You should get something like this:
 ![Image of the before application after a sentence has been translated][BeforeMain2] 
 
 "*Hello*" isn't a noun or a verb so doesn't get translated.
+
 "*World*" becomes "*Mundo*".
 
 Finally, __stop__ the database and try the translation again.
@@ -292,6 +306,7 @@ The data model doesn't change.
 What we do is introduce one annotation, `@KeySpace` to "*Noun*" and "*Verb*".
 
 So, "*Noun*" changes from
+
 ```
 @Entity
 public class Noun implements Serializable {
@@ -303,7 +318,9 @@ public class Noun implements Serializable {
 	private String	french;
 	private String	spanish;
 ```
+
 to
+
 <pre>
 @Entity
 <b>@KeySpace</b>
@@ -327,17 +344,21 @@ keyspace.
 We now have two repository modules.
 
 `after-jpa-repository` is for JPA access to the domain model.
+
 `after-kv-repository` is for Key-Value access to the domain model.
 
 ### `after-jpa-repository`
 This repository will be used by Hazelcast to load the SQL data into memory.
 
 The definition changes from
+
 ```
 public interface VerbJPARepository extends CrudRepository<Verb, Integer> {
 	public Verb findByEnglish(String s);
 ```
+
 to
+
 <pre>
 public interface VerbJPARepository extends CrudRepository<Verb, Integer> {
 	<b>
@@ -359,6 +380,7 @@ This is a new repository that the application will use to access the data
 from Hazelcast, instead of using the JPA repository.
 
 However, it looks very much the same as the repository in Step 2.
+
 ```
 public interface VerbKVRepository extends HazelcastRepository<Verb, Integer> {
 	public Verb findByEnglish(String s);
@@ -398,6 +420,7 @@ This is the "*TranslationService*" again. This is identical from before, except 
 using Key-Value repositories instead of JPA repositories.
 
 So it has changed from
+
 ```
 public class TranslationService {
 	@Autowired
@@ -406,7 +429,9 @@ public class TranslationService {
 	@Autowired
 	private VerbJPARepository verbJPARepository;
 ```
+
 To
+
 <pre>
 public class TranslationService {
 	@Autowired
@@ -457,11 +482,13 @@ You should get something like this:
 ![Image of the first Hazelcast in the after application][AfterHZ1] 
 
 In the above, the line to look for is
+
 <pre>
 Members [1] {
 	<b>Member [127.0.0.1]:5701 - 240652e9-b986-4e54-bf66-ff63650289fb this</b>
 }
 </pre>
+
 As this shows a cluster of Hazelcast servers has been formed, and this process is a member of that cluster. At this time, the only member.
 
 A cluster of one generally isn't much use, so start another Hazelcast server using the same command in a different window, `java -jar after/after-hz-main/target/after-hz-main-0.1-SNAPSHOT.jar`.
@@ -472,12 +499,14 @@ You should get something like this:
 
 Looking at the cluster members section towards the end of the start-up messages, you should see something like
 this
+
 <pre>
 Members [2] {
 	Member [127.0.0.1]:5701 - 240652e9-b986-4e54-bf66-ff63650289fb
 	<b>Member [127.0.0.1]:5702 - cd7ca2f0-181b-4e8d-8a6b-20fd9dc839dc this</b>
 }
 </pre>
+
 Now there are two processes in the cluster, and this one is the second one (on port 5702).
 
 From the command line, try the `debugHZ` command to see what content is in Hazelcast.
@@ -493,9 +522,11 @@ like this:
 ![Image of the after application just having started][AfterMain1] 
 
 The line here:
+
 <pre>
 INFO: hz.client_0 [dev] [3.8-SNAPSHOT] <b>HazelcastClient</b> 3.8-SNAPSHOT (20161128 - 4a00c4f) is <b>CLIENT_CONNECTED</b>
 </pre>
+
 confirms that the application process is acting as a Hazelcast client and has successfully connected to the servers.
 
 Now, let's try translating "*hello world*" again.
@@ -509,6 +540,7 @@ Let's now take a look at the Hazelcast servers, here the first one:
 ![Image of the first Hazelcast showing data loading logging][AfterHZ4] 
 
 What we see above is log messages of the style,
+
 <pre>
 18:52:10.959 INFO  c.h.s.s.d.m.<b>MyNounLoader - load(3)</b>
 18:52:10.962 INFO  c.h.s.s.d.m.<b>MyNounLoader - load(4)</b> 
